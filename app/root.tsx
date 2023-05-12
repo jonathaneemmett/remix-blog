@@ -1,6 +1,21 @@
-import { Outlet, LiveReload, Link, Links, Meta } from '@remix-run/react';
-import type { LinksFunction, V2_MetaFunction } from '@remix-run/node';
-import { isRouteErrorResponse, useRouteError } from '@remix-run/react';
+import {
+	Outlet,
+	LiveReload,
+	Link,
+	Links,
+	Meta,
+	isRouteErrorResponse,
+	useRouteError,
+	useLoaderData,
+} from '@remix-run/react';
+import type {
+	LinksFunction,
+	LoaderFunction,
+	V2_MetaFunction,
+} from '@remix-run/node';
+
+import { getUser } from './utils/session.server';
+
 import styles from '~/styles/global.css';
 
 type Props = {
@@ -22,6 +37,12 @@ export const meta: V2_MetaFunction = () => {
 			description: 'Remix and friends.',
 		},
 	];
+};
+
+export const loader: LoaderFunction = async ({ request }) => {
+	const user = await getUser(request);
+
+	return { user };
 };
 
 export default function App() {
@@ -51,6 +72,7 @@ function Document({ children, title }: Props) {
 }
 
 function Layout({ children }: LayoutProps) {
+	const { user } = useLoaderData();
 	return (
 		<>
 			<nav className='navbar'>
@@ -61,6 +83,19 @@ function Layout({ children }: LayoutProps) {
 					<li>
 						<Link to='/posts'>Posts</Link>
 					</li>
+					{user ? (
+						<li>
+							<form action='/logout' method='POST'>
+								<button className='btn ' type='submit'>
+									Logout {user.username}
+								</button>
+							</form>
+						</li>
+					) : (
+						<li>
+							<Link to='/login'>Login</Link>
+						</li>
+					)}
 				</ul>
 			</nav>
 			<div className='container'>{children}</div>

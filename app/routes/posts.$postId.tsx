@@ -5,35 +5,41 @@ import {
 	type LoaderFunction,
 } from '@remix-run/node';
 import { db } from '~/utils/db.server';
+import { getUser } from '~/utils/session.server';
 
-export const loader: LoaderFunction = async ({ params }) => {
+export const loader: LoaderFunction = async ({ request, params }) => {
+	const user = await getUser(request);
+
 	const post = await db.post.findUnique({
 		where: { id: params.postId },
 	});
 
 	if (!post) throw new Error('Post not found');
 
-	return { post };
+	return { post, user };
 };
 
 export const action: ActionFunction = async ({ request, params }) => {
-	console.log(params);
 	const form = await request.formData();
 	if (form.get('_method') === 'delete') {
+		const user = await getUser(request);
+
 		const post = await db.post.findUnique({
 			where: { id: params.postId },
 		});
 
 		if (!post) throw new Error('Post not found to delete');
 
-		await db.post.delete({ where: { id: params.postId } });
+		if (user && post.userId === user.id) {
+			await db.post.delete({ where: { id: params.postId } });
+		}
 
 		return redirect('/posts');
 	}
 };
 
 const Post = () => {
-	const { post } = useLoaderData();
+	const { post, user } = useLoaderData();
 
 	return (
 		<div>
@@ -47,10 +53,12 @@ const Post = () => {
 				<p>{post.body}</p>
 			</div>
 			<div className='page-footer'>
-				<form method='POST'>
-					<input type='hidden' name='_method' value='delete' />
-					<button className='btn btn-delete'>Delete</button>
-				</form>
+				{user && user.id === post.userId && (
+					<form method='POST'>
+						<input type='hidden' name='_method' value='delete' />
+						<button className='btn btn-delete'>Delete</button>
+					</form>
+				)}
 			</div>
 		</div>
 	);
